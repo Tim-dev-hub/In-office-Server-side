@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,6 +24,11 @@ namespace In_office
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllersWithViews();
+
+            services.Configure<IISServerOptions>(options =>
+            {
+                options.AllowSynchronousIO = true;
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -36,6 +42,9 @@ namespace In_office
             {
                 app.UseExceptionHandler("/Home/Error");
             }
+
+
+
             app.UseStaticFiles();
 
             app.UseRouting();
@@ -46,6 +55,7 @@ namespace In_office
             {
                 endpoints.MapControllers();
             });
+            
             /*(endpoints =>
             {
                 endpoints.MapControllerRoute(

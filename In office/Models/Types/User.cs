@@ -6,17 +6,15 @@ using Newtonsoft.Json;
 
 namespace In_office.Models.Types
 {
-    public class User
+    public class User : BaseServerType
     {
-        [JsonProperty("id")]
-        public long ID; 
         [JsonProperty("name")]
-        public string Name;
+        public string Name { get; set; }
         [JsonProperty("surname")]
-        public string Surname;
+        public string Surname { get; set; }
         [JsonProperty("nickname")]
-        public string Nickname;
-        [NonSerialized] //мы же не собираемся отправлять номер первому встречному, лол 
-        public string PhoneNumber; 
+        public string Nickname{ get; set; }
+        [JsonProperty("phone number")]
+        public string PhoneNumber { internal get; set; }
     }
 }

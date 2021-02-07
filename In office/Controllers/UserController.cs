@@ -3,16 +3,20 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.Text;
+using System.IO;
+using In_office.Models.Types;
 
 namespace In_office.Controllers
 {
     public class UserController : Controller
     {
         [HttpGet("/Users/{id}")]
-        public string Get(long id)
+        public async Task<string> Get(long id)
         {
-            //TODO: Realization database read
-            return "Status: 200 \n*here your user with id "+id+"*";
+            var database = new Models.Data.Mappers.DataMapper<User>("UsersExample");
+            return JsonConvert.SerializeObject(await database.GetAsync(id));
         }
 
 
@@ -21,10 +25,22 @@ namespace In_office.Controllers
         /// DONT TRY INVOKE THIS FROM SERVER CODE THITS ONLY INTERFACE FOR HTTP. 
         /// </summary>
         [HttpPost("/Users")]
-        
-        public string Write()
+        public async Task<string> Write()
         {
-            //TODO: Realization database write
+            var database = new Models.Data.Mappers.DataMapper<User>("UsersExample");
+            User user;
+            string body;
+
+            using (StreamReader stream = new StreamReader(HttpContext.Request.Body))
+            {
+                body = stream.ReadToEnd();
+            }
+
+            user = JsonConvert.DeserializeObject<User>(body);
+
+
+            await database.SaveAsync(user);
+
             return "Status: 200";
         }
 

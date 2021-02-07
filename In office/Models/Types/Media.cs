@@ -6,10 +6,8 @@ using Newtonsoft.Json;
 
 namespace In_office.Models.Types
 {
-    public class Media
+    public class Media : BaseServerType
     {
-        [JsonProperty("id")]
-        public long ID;
         [NonSerialized] //Path relative server 
         public string Path;
         [JsonProperty("size")]
