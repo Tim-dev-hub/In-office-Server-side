@@ -8,13 +8,12 @@ using In_office.Models.Types;
 
 namespace In_office.Models.Data.Mappers
 {
-    public class DataMapper<T> : IAsyncMapper<T> where T : BaseServerType, new() 
+    public class DataMapper<T> : IAsyncMapper<T> where T : Types.Data, new() 
     {
         private const string CreateStringFormat = "CREATE TABLE $NAME$ ( $SCHEMA$ )";
         private const string AddElementStringFormat = "INSERT INTO $NAME$ ($COLUMNS_NAMES$) VALUES($VALUES$)";
         private const string GetElementStringFormat = "SELECT * FROM $NAME$ WHERE $CONDITION$";
 
-        private Type DataObjectType;
         private string _path { get; set; }
         public string Name { get; private set; }
         public List<SQLProperty> Properties { get; private set; }
@@ -28,25 +27,23 @@ namespace In_office.Models.Data.Mappers
             { typeof(DateTime), SQLProperty.DataType.DATETIME},
             { typeof(TimeSpan), SQLProperty.DataType.TIME},
             { typeof(float), SQLProperty.DataType.REAL }
-            //TODO: добавь другие типы, если понадобится 
         };
 
         public DataMapper(string Name)
         {
             this.Name = Name;
-            this.DataObjectType = typeof(T);
             List<SQLProperty> properties = new List<SQLProperty>();
 
             var props = typeof(T).GetProperties();
 
-            foreach (var property in props)
+            for(int i = 0; i < props.Length; i++)
             {
                 SQLProperty.DataType propType;
 
-                if (_sqlTypes.TryGetValue(property.PropertyType, out propType))
+                if (_sqlTypes.TryGetValue(props[i].PropertyType, out propType))
                 {
-                    var name = property.Name;
-                    var primaryKey = (property.Name == "ID" ? true : false);
+                    var name = props[i].Name;
+                    var primaryKey = (props[i].Name == "ID" ? true : false);
 
                     properties.Add(new SQLProperty(propType, name, primaryKey));
                 }
@@ -61,7 +58,8 @@ namespace In_office.Models.Data.Mappers
             if (!File.Exists(path))
             {
                 SQLiteConnection.CreateFile(path);
-                EnterCommandNonQuaryAsync(GenerateCreateString(Name, this.Properties));
+                var comm = GenerateCreateString(Name, this.Properties);
+                Task.Run(() => EnterCommandNonQuaryAsync(comm));
             }
         }
 
@@ -72,44 +70,53 @@ namespace In_office.Models.Data.Mappers
                 await conn.OpenAsync();
                 SQLiteCommand comm = new SQLiteCommand(command);
                 comm.Connection = conn;
-                await comm.ExecuteReaderAsync();//ExecuteNonQuery();
+                await comm.ExecuteReaderAsync();
                 await conn.CloseAsync();
             }
         }
 
-        private async Task<object> ExecuteReaderAsync(string command)
+        public async Task<bool> Contain(string propertyName, string propertyValue)
+        {
+            var result = await ExecuteReaderAsync(GetElementStringFormat.Replace("$NAME$", Name).Replace("$CONDITION$", propertyName + "=" + propertyValue));
+            return result == null;
+        }
+
+        private async Task<T> ExecuteReaderAsync(string command)
         {
             using (SQLiteConnection connection = new SQLiteConnection("Data Source=" + _path))
             {
                 SQLiteCommand comm = new SQLiteCommand(command);
                 comm.Connection = connection;
-                await connection.OpenAsync();// Open();
+                await connection.OpenAsync();
 
-                SQLiteDataReader reader = await comm.ExecuteReaderAsync() as SQLiteDataReader;//ExecuteReader();
-                await reader.ReadAsync();//Read();
+                SQLiteDataReader reader = await comm.ExecuteReaderAsync() as SQLiteDataReader;
+                await reader.ReadAsync();
 
-                var instance = new T();
-                var type = instance.GetType();
-
-                var props = DataObjectType.GetProperties();
-                for (int i = 0; i < DataObjectType.GetProperties().Length - 1; i++)
+                if (reader.HasRows)
                 {
-                    //А почему рот в рефлексии? 
-                    //не верю что оно заработает...
-                    var prop = type.GetProperty(DataObjectType.GetProperties()[i].Name);
-                    var value = reader.GetValue(i);
-                    prop.SetValue(instance, value);
+
+                    var instance = new T();
+                    var type = instance.GetType();
+
+                    for (int i = 0; i < typeof(T).GetProperties().Length - 1; i++)
+                    {
+                        var prop = type.GetProperty(typeof(T).GetProperties()[i].Name);
+                        var value = reader.GetValue(i);
+                        prop.SetValue(instance, value);
+                    }
+
+                    await reader.CloseAsync();
+                    await connection.CloseAsync();
+
+                    return instance;
                 }
 
-                await reader.CloseAsync();
-                await connection.CloseAsync();
-
-                return instance;
+                return null;
             }
         }
 
 
-        public async Task<object> GetAsync(long id)
+        public async Task<T> GetAsync(long id)
         {
             var command = GetElementStringFormat;
             command = command.Replace("$NAME$", Name);
@@ -118,14 +125,33 @@ namespace In_office.Models.Data.Mappers
             return await ExecuteReaderAsync(command);
         }
 
-        public async Task SaveAsync(T obj)
+        public async Task<T> SaveAsync(T obj)
         {
             var command = AddElementStringFormat;
             command = command.Replace("$NAME$", Name);
             command = command.Replace("$COLUMNS_NAMES$", GenerateColumnsNames(Properties));
+            obj.ID = await GetID();
             command = command.Replace("$VALUES$", GenerateValues(obj));
 
             await  EnterCommandNonQuaryAsync(command);
+            return obj;
+        }
+
+        private async Task<long> GetID()
+        {
+            int result = 0;
+
+            while (result == 0)
+            {
+                var variant = new Random().Next(Int32.MinValue, Int32.MaxValue);
+
+                if (await GetAsync(variant) == null)
+                {
+                    result = variant;
+                }
+            }
+
+            return result;
         }
 
         private static string GenerateValues(T obj)

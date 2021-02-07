@@ -6,12 +6,21 @@ using Newtonsoft.Json;
 
 namespace In_office.Models.Types
 {
-    public class Media : BaseServerType
+    public class Media : Data
     {
-        [NonSerialized] //Path relative server 
+        /// <summary>
+        /// Путь к фото на сервере
+        /// </summary>
+        [NonSerialized] 
         public string Path;
+        /// <summary>
+        /// Размер фото
+        /// </summary>
         [JsonProperty("size")]
-        public string Size;
+        public int Size;
+        /// <summary>
+        /// Имя фото, с которым оно было получено на сервер
+        /// </summary>
         [JsonProperty("Name")]
         public string Name;
     }

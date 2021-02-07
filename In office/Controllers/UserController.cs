@@ -7,41 +7,50 @@ using Newtonsoft.Json;
 using System.Text;
 using System.IO;
 using In_office.Models.Types;
+using In_office.Models.Data.Mappers;
 
 namespace In_office.Controllers
 {
     public class UserController : Controller
     {
+        private DataMapper<User> _database = new DataMapper<User>("Users");
+
         [HttpGet("/Users/{id}")]
         public async Task<string> Get(long id)
         {
-            var database = new Models.Data.Mappers.DataMapper<User>("UsersExample");
-            return JsonConvert.SerializeObject(await database.GetAsync(id));
+            var responce = JsonConvert.SerializeObject(await _database.GetAsync(id));
+
+            if (responce != null)
+            {
+                return responce;
+            }
+            else
+            {
+                Response.StatusCode = 404;
+                return null;
+            }
         }
 
-
-        /// <summary>
-        /// This method used for init new user. 
-        /// DONT TRY INVOKE THIS FROM SERVER CODE THITS ONLY INTERFACE FOR HTTP. 
-        /// </summary>
         [HttpPost("/Users")]
         public async Task<string> Write()
         {
-            var database = new Models.Data.Mappers.DataMapper<User>("UsersExample");
             User user;
             string body;
 
             using (StreamReader stream = new StreamReader(HttpContext.Request.Body))
             {
-                body = stream.ReadToEnd();
+                body = await stream.ReadToEndAsync();
             }
-
             user = JsonConvert.DeserializeObject<User>(body);
 
+            if(!await _database.Contain("PhoneNumber", user.PhoneNumber))
+            {
+                Response.StatusCode = 401;
+                return "This phone number already used";
+            }
 
-            await database.SaveAsync(user);
-
-            return "Status: 200";
+            var responce = JsonConvert.SerializeObject(_database.SaveAsync(user));
+            return responce;
         }
 
         [HttpPut("/Users/{id}")]

@@ -6,7 +6,8 @@ using Newtonsoft.Json;
 
 namespace In_office.Models.Types
 {
-    public class User : BaseServerType
+
+    public class User : Data
     {
         [JsonProperty("name")]
         public string Name { get; set; }
