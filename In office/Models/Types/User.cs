@@ -7,6 +7,9 @@ using Newtonsoft.Json;
 namespace In_office.Models.Types
 {
 
+    /// <summary>
+    /// объект данных пользователя
+    /// </summary>
     public class User : Data
     {
         [JsonProperty("name")]

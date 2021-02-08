@@ -10,7 +10,7 @@ namespace In_office.Models.Data.Mappers
     {
         public abstract Task<T> GetAsync(long id);
         public abstract Task<T> SaveAsync(T user);
-        public abstract Task ChangeAsync(T original, T alternative);
+        public abstract Task ChangeAsync(long originalID, T alternative);
         public abstract Task DeleteAsync(T deletable);
     }
 }

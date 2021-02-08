@@ -34,37 +34,45 @@ namespace In_office.Controllers
         [HttpPost("/Users")]
         public async Task<string> Write()
         {
-            User user;
-            string body;
+            var user = ReadUser(HttpContext);
 
-            using (StreamReader stream = new StreamReader(HttpContext.Request.Body))
-            {
-                body = await stream.ReadToEndAsync();
-            }
-            user = JsonConvert.DeserializeObject<User>(body);
-
-            if(!await _database.Contain("PhoneNumber", user.PhoneNumber))
+            if (!await _database.Contain("PhoneNumber", user.Result.PhoneNumber))
             {
                 Response.StatusCode = 401;
                 return "This phone number already used";
             }
 
-            var responce = JsonConvert.SerializeObject(_database.SaveAsync(user));
+            var responce = JsonConvert.SerializeObject(_database.SaveAsync(user.Result));
             return responce;
         }
 
         [HttpPut("/Users/{id}")]
-        public string Change(long id)
+        public async Task<string> Change(long id)
         {
-            //TODO: Realization database REwrite
+            var user = await ReadUser(HttpContext);
+
+            await _database.ChangeAsync(id, user);
             return "Status: 200";
         }
 
         [HttpDelete("/Users/{id}")]
-        public string Delete(long id)
+        public async Task<string> Delete(long id)
         {
-            //TODO: Realization database user delete
+            var user = await ReadUser(HttpContext);
+
+            await _database.DeleteAsync(user);
             return "Status: 200";
+        }
+
+        public async Task<User> ReadUser(Microsoft.AspNetCore.Http.HttpContext context)
+        {
+            string body;
+
+            using (StreamReader stream = new StreamReader(HttpContext.Request.Body))
+            {
+                 body = await stream.ReadToEndAsync();
+            }
+            return JsonConvert.DeserializeObject<User>(body);
         }
     }
 }

@@ -13,7 +13,8 @@ namespace In_office.Models.Data.Mappers
         private const string CreateStringFormat = "CREATE TABLE $NAME$ ( $SCHEMA$ )";
         private const string AddElementStringFormat = "INSERT INTO $NAME$ ($COLUMNS_NAMES$) VALUES($VALUES$)";
         private const string GetElementStringFormat = "SELECT * FROM $NAME$ WHERE $CONDITION$";
-
+        private const string ChangeElementStringFormat = "UPDATE $NAME$ SET $COLUMN AND VALUES$ WHERE $CONDITION$";
+        private const string DeleteElementStringFormat = "DELETE FROM $NAME$ WHERE $CONDITION$";
         private string _path { get; set; }
         public string Name { get; private set; }
         public List<SQLProperty> Properties { get; private set; }
@@ -75,6 +76,12 @@ namespace In_office.Models.Data.Mappers
             }
         }
 
+        /// <summary>
+        /// Current database contain object with entered value property?  
+        /// </summary>
+        /// <param name="propertyName">Name of property</param>
+        /// <param name="propertyValue">Value of property</param>
+        /// <returns>Contain?</returns>
         public async Task<bool> Contain(string propertyName, string propertyValue)
         {
             var result = await ExecuteReaderAsync(GetElementStringFormat.Replace("$NAME$", Name).Replace("$CONDITION$", propertyName + "=" + propertyValue));
@@ -115,7 +122,12 @@ namespace In_office.Models.Data.Mappers
             }
         }
 
-
+        /// <summary>
+        /// find object in database with entered ID
+        /// </summary>
+        /// <param name="id">Identeficator</param>
+        /// <returns>finded object
+        /// Can be null, if object doesn't exists</returns>
         public async Task<T> GetAsync(long id)
         {
             var command = GetElementStringFormat;
@@ -125,6 +137,11 @@ namespace In_office.Models.Data.Mappers
             return await ExecuteReaderAsync(command);
         }
 
+        /// <summary>
+        /// Save object in databse
+        /// </summary>
+        /// <param name="obj">Object instance</param>
+        /// <returns>return entered object with datanase's id</returns>
         public async Task<T> SaveAsync(T obj)
         {
             var command = AddElementStringFormat;
@@ -137,6 +154,10 @@ namespace In_office.Models.Data.Mappers
             return obj;
         }
 
+        /// <summary>
+        /// Generate random ID not previously used in current database
+        /// </summary>
+        /// <returns>random ID</returns>
         private async Task<long> GetID()
         {
             int result = 0;
@@ -154,6 +175,69 @@ namespace In_office.Models.Data.Mappers
             return result;
         }
 
+
+        /// <summary>
+        /// Change user values with entered ID
+        /// No, it is impossible to change the object ID, it is ignored
+        /// </summary>
+        /// <param name="originalID">Original object ID</param>
+        /// <param name="alternative">alternative values of entered object ID</param>
+        /// <returns></returns>
+        public async Task ChangeAsync(long originalID, T alternative)
+        {
+            alternative.ID = originalID;
+
+            var command = ChangeElementStringFormat;
+            command = command.Replace("$NAME$", this.Name);
+            command = command.Replace("$COLUMN AND VALUES$", GenerateColumnNamesWithValues(alternative));
+            command = command.Replace("$CONDITION$", "ID = " + originalID);
+
+            await EnterCommandNonQuaryAsync(command);
+        }
+
+        /// <summary>
+        /// Delete object from database
+        /// </summary>
+        /// <param name="deletable">object, wich needed delete</param>
+        /// <returns></returns>
+        public async Task DeleteAsync(T deletable)
+        {
+            var commmand = DeleteElementStringFormat;
+            commmand = commmand.Replace("$NAME$", this.Name);
+            commmand = commmand.Replace("$CONDITION$", "ID = " + deletable.ID);
+
+            await EnterCommandNonQuaryAsync(commmand);
+        }
+
+        /// <summary>
+        /// to map obj values to format : 
+        /// Prop1 = propValue1, Prop2 = propValue2, Prop3 = propValue3... 
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        private static string GenerateColumnNamesWithValues(T obj)
+        {
+            var props = obj.GetType().GetProperties();
+
+            string str = "";
+
+            for (int i = 0; i < props.Length; i++)
+            {
+                bool typeIsString = props[i].PropertyType == typeof(string);
+
+                str += props[i].Name + " = " + (typeIsString ? "'" : "") + props[i].GetValue(obj) + (typeIsString ? "'" : "") + (i == props.Length - 1 ? "" : ",");
+            }
+
+            return str;
+        }
+
+
+        /// <summary>
+        /// to map obj values to format : 
+        /// propValue1, propValue2, propValue3... 
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         private static string GenerateValues(T obj)
         {
             var props = obj.GetType().GetProperties();
@@ -170,6 +254,12 @@ namespace In_office.Models.Data.Mappers
             return str;
         }
 
+        /// <summary>
+        /// to map obj values to format : 
+        /// CREATE $NAME$ (PropName1 Type1, PropName2 Type2, PropName3 Type3...)
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         private static string GenerateCreateString(string name, List<SQLProperty> properties)
         {
             string schema = "";
@@ -182,6 +272,12 @@ namespace In_office.Models.Data.Mappers
             return CreateStringFormat.Replace("$NAME$", name).Replace("$SCHEMA$", schema); ;
         }
 
+        /// <summary>
+        /// to map obj values to format : 
+        /// PropName1, PropName2, PropName3...
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         private static string GenerateColumnsNames(List<SQLProperty> propertyes)
         {
             string result = "";
@@ -194,14 +290,12 @@ namespace In_office.Models.Data.Mappers
             return result;
         }
 
-        public Task ChangeAsync(T original, T alternative)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task DeleteAsync(T deletable)
-        {
-            throw new NotImplementedException();
-        }
+        //TODO: придумать как то избавится от копирования кода в функциях с префиксами Generate.
     }
 }
+
+/*
+ Я : просто пишу код
+ Полтора читателя моего гитхаба:
+    https://i.kym-cdn.com/photos/images/newsfeed/001/528/504/195.png
+ */

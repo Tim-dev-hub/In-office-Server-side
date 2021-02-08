@@ -9,7 +9,7 @@ namespace In_office.Models.Types
     /// <summary>
     /// Базовый тип любых данных, хранимых на сервере.
     /// </summary>
-    public abstract class Data 
+    public abstract class Data
     {
         /// <summary>
         /// Уникальное ID объекта
