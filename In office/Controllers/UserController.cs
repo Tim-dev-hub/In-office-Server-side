@@ -18,7 +18,10 @@ namespace In_office.Controllers
         [HttpGet("/Users/{id}")]
         public async Task<string> Get(long id)
         {
-            var responce = JsonConvert.SerializeObject(await _database.GetAsync(id));
+            var user = await _database.GetAsync(id);
+            user.PhoneNumber = String.Empty;
+
+            var responce = JsonConvert.SerializeObject(user);
 
             if (responce != null)
             {
@@ -34,15 +37,18 @@ namespace In_office.Controllers
         [HttpPost("/Users")]
         public async Task<string> Write()
         {
-            var user = ReadUser(HttpContext);
+            var user = await ReadUser(HttpContext);
+            user.Token = In_office.Models.Serucity.Encryption.Generate512ByteKey();
 
-            if (!await _database.Contain("PhoneNumber", user.Result.PhoneNumber))
+            if (!await _database.Contain("PhoneNumber", user.PhoneNumber))
             {
                 Response.StatusCode = 401;
                 return "This phone number already used";
             }
 
-            var responce = JsonConvert.SerializeObject(_database.SaveAsync(user.Result));
+            var newUserObject = await _database.SaveAsync(user);
+
+            var responce = JsonConvert.SerializeObject(newUserObject);
             return responce;
         }
 
@@ -50,9 +56,26 @@ namespace In_office.Controllers
         public async Task<string> Change(long id)
         {
             var user = await ReadUser(HttpContext);
+            user.ID = id;
 
-            await _database.ChangeAsync(id, user);
-            return "Status: 200";
+            //Поскольку API будет открытым для использования, 
+            //стоит позаботься о безопасности
+            //так для изменения любых данных нужно подтверждение о их владении.
+            //Сделать это можно предоставив ID пользователя-автора и 512-байтовый HEX ключ, 
+            //которые выдаются пользователю при регистрации и каждой авторизации аккаунта.
+
+            //является ли пользователь владельцем аккаунта? 
+            if (await _database.IsDataOwnership(user.Token, user.ID))
+            {
+                await _database.ChangeAsync(id, user);
+                Response.StatusCode = 200;
+                return "OK, user parametres was modified";
+            }
+            else
+            {
+                Response.StatusCode = 403;
+                return "This data not available for your modification, you need to be its ♂master♂";
+            }
         }
 
         [HttpDelete("/Users/{id}")]
@@ -60,8 +83,18 @@ namespace In_office.Controllers
         {
             var user = await ReadUser(HttpContext);
 
-            await _database.DeleteAsync(user);
-            return "Status: 200";
+            if (await _database.IsDataOwnership(user.Token, user.ID))
+            {
+                await _database.DeleteAsync(user);
+                Response.StatusCode = 200;
+                return "OK, user was already delete";
+            }
+            else
+            {
+                Response.StatusCode = 403;
+                return "-No, you can't just delete my personal data\n" +
+                       "-hahah SQL tabel make wrum-wrum.";
+            }
         }
 
         public async Task<User> ReadUser(Microsoft.AspNetCore.Http.HttpContext context)

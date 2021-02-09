@@ -16,5 +16,13 @@ namespace In_office.Models.Types
         /// </summary>
         [JsonProperty("id")]
         public long ID { get; set; }
+
+
+        /// <summary>
+        /// Токен, который имееть лишь владелец аккаунта и сервер. 
+        /// Буквально означает, что "эти данные мои, я могу их изменять и удалять. Вот ключ, подтверждающий это"
+        /// </summary>
+        [JsonProperty("token")]
+        public string Token { get; set; }
     }
 }

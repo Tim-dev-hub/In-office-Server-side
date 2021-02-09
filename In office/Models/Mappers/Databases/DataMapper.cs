@@ -133,8 +133,28 @@ namespace In_office.Models.Data.Mappers
             var command = GetElementStringFormat;
             command = command.Replace("$NAME$", Name);
             command = command.Replace("$CONDITION$", "ID = " + id);
-
+            
             return await ExecuteReaderAsync(command);
+        }
+
+        /// <summary>
+        /// Does the user exist with the given key and ID?
+        /// </summary>
+        /// <param name="key">user token</param>
+        /// <param name="pretendentID">him ID</param>
+        /// <returns></returns>
+        public async Task<bool> IsDataOwnership(string key, long pretendentID)
+        {
+            if(key == null)
+            {
+                return false;
+            }
+
+            var command = GetElementStringFormat;
+            command = command.Replace("$NAME$", this.Name).Replace("$CONDITION$", "Token = '" + key + "' AND ID = " + pretendentID);
+
+            var res = (await ExecuteReaderAsync(command));
+            return res != null;
         }
 
         /// <summary>
@@ -144,10 +164,10 @@ namespace In_office.Models.Data.Mappers
         /// <returns>return entered object with datanase's id</returns>
         public async Task<T> SaveAsync(T obj)
         {
+            obj.ID = await GetID();
             var command = AddElementStringFormat;
             command = command.Replace("$NAME$", Name);
             command = command.Replace("$COLUMNS_NAMES$", GenerateColumnsNames(Properties));
-            obj.ID = await GetID();
             command = command.Replace("$VALUES$", GenerateValues(obj));
 
             await  EnterCommandNonQuaryAsync(command);

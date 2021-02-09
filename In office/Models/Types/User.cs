@@ -19,6 +19,6 @@ namespace In_office.Models.Types
         [JsonProperty("nickname")]
         public string Nickname{ get; set; }
         [JsonProperty("phone number")]
-        public string PhoneNumber { internal get; set; }
+        public string PhoneNumber { get; set; }
     }
 }
