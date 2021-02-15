@@ -8,18 +8,20 @@ using System.Text;
 using System.IO;
 using In_office.Models.Types;
 using In_office.Models.Data.Mappers;
+using In_office.Models;
 
 namespace In_office.Controllers
 {
     public class UserController : Controller
     {
-        private DataMapper<User> _database = new DataMapper<User>("Users");
+        private  DataMapper<User> _database = new DataMapper<User>("Users");
+        private static List<VerificationRequest> _verificationRequests = new List<VerificationRequest>();
 
         [HttpGet("/Users/{id}")]
         public async Task<string> Get(long id)
         {
             var user = await _database.GetAsync(id);
-            user.PhoneNumber = String.Empty;
+            user.E_mail = String.Empty;
 
             var responce = JsonConvert.SerializeObject(user);
 
@@ -40,16 +42,56 @@ namespace In_office.Controllers
             var user = await ReadUser(HttpContext);
             user.Token = In_office.Models.Serucity.Encryption.Generate512ByteKey();
 
-            if (!await _database.Contain("PhoneNumber", user.PhoneNumber))
+            if (!await _database.Contain("E_mail", user.E_mail))
             {
-                Response.StatusCode = 401;
-                return "This phone number already used";
+                Response.StatusCode = 406;
+                return "This email already used";
             }
 
-            var newUserObject = await _database.SaveAsync(user);
+            string code = Mail.GenerateCode(6);
+            Mail.Send(user.E_mail, "Verification code", "You verification code : " + code);
 
-            var responce = JsonConvert.SerializeObject(newUserObject);
-            return responce;
+            _verificationRequests.Add(new VerificationRequest(user.E_mail, code, user));
+            Response.StatusCode = 200;
+            return "Ок, ожидай письмо и кинь код на /Users/$EMAIL_ADDRES$/";
+        }
+
+        [HttpPost("/Users/{email}")]
+        public async Task<string> Verify(string email)
+        {
+            VerificationRequest verificationRequest = null;
+            User mailOwner = null;
+
+            foreach(var request in _verificationRequests)
+            {
+                if (request.EMail == email)
+                {
+                    verificationRequest = request;
+                    mailOwner = request.User;
+                    break;
+                }
+            }
+
+            if(verificationRequest == null || mailOwner == null)
+            {
+                Response.StatusCode = 400;
+                return "Указанная почта, скорее всего, была подтверждена ранее";
+            }
+
+            if(await Read() == verificationRequest.Code)
+            {
+                var newUserObject = await _database.SaveAsync(mailOwner);
+
+                var responce = JsonConvert.SerializeObject(newUserObject);
+                Response.StatusCode = 200;
+                _verificationRequests.Remove(verificationRequest);
+                return responce;
+            }
+            else
+            {
+                Response.StatusCode = 403;
+                return "Код был введён неправильно, пройдите регистрацию ещё раз";
+            }
         }
 
         [HttpPut("/Users/{id}")]
@@ -106,6 +148,18 @@ namespace In_office.Controllers
                  body = await stream.ReadToEndAsync();
             }
             return JsonConvert.DeserializeObject<User>(body);
+        }
+
+        public async Task<string> Read()
+        {
+            string body;
+
+            using (StreamReader stream = new StreamReader(HttpContext.Request.Body))
+            {
+                body = await stream.ReadToEndAsync();
+            }
+
+            return body;
         }
     }
 }

@@ -18,7 +18,27 @@ namespace In_office.Models.Types
         public string Surname { get; set; }
         [JsonProperty("nickname")]
         public string Nickname{ get; set; }
-        [JsonProperty("phone number")]
-        public string PhoneNumber { get; set; }
+        [JsonProperty("EMail")]
+        public string E_mail { get; set; }
+
+        public static bool operator ==(User user0, User user1)
+        {
+            if (user0 is null && user1 is null)
+                return true;
+            else if (!(user0 is null) && user1 is null || !(user1 is null) && user0 is null)
+                return false;
+
+            return user0.ID == user1.ID;
+        }
+
+        public static bool operator !=(User user0, User user1)
+        {
+            if (user0 is null && user1 is null)
+                return false;
+            else if (!(user0 is null) && user1 is null || !(user1 is null) && user0 is null)
+                return true;
+
+            return user0.ID != user1.ID;
+        }
     }
 }

@@ -8,6 +8,13 @@ using In_office.Models.Types;
 
 namespace In_office.Models.Data.Mappers
 {
+    //Мне кажеться идея для хранения любых данных, используя дженерики и рефлексию 
+    //наилучая за всё время 
+
+    /// <summary>
+    /// Object of database
+    /// </summary>
+    /// <typeparam name="T">an object inherited from the Data class and having an initializer new ()</typeparam>
     public class DataMapper<T> : IAsyncMapper<T> where T : Types.Data, new() 
     {
         private const string CreateStringFormat = "CREATE TABLE $NAME$ ( $SCHEMA$ )";
@@ -84,7 +91,10 @@ namespace In_office.Models.Data.Mappers
         /// <returns>Contain?</returns>
         public async Task<bool> Contain(string propertyName, string propertyValue)
         {
-            var result = await ExecuteReaderAsync(GetElementStringFormat.Replace("$NAME$", Name).Replace("$CONDITION$", propertyName + "=" + propertyValue));
+            Type propType = typeof(T).GetProperty(propertyName).PropertyType;
+            bool valueIsString = propType == typeof(string);
+            string sqlstring = GetElementStringFormat.Replace("$NAME$", Name).Replace("$CONDITION$", propertyName + "=" + (valueIsString ? "'" : "") + propertyValue + (valueIsString ? "'" : ""));
+            var result = await ExecuteReaderAsync(sqlstring);
             return result == null;
         }
 
