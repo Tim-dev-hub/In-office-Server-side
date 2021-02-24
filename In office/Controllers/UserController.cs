@@ -14,14 +14,42 @@ namespace In_office.Controllers
 {
     public class UserController : Controller
     {
-        private  DataMapper<User> _database = new DataMapper<User>("Users");
+        private  Database<User> _database = new Database<User>("Users");
         private static List<VerificationRequest> _verificationRequests = new List<VerificationRequest>();
 
+        
+        [HttpPut("/Users/{id}/Password/")]
+        public async Task<string> ChangePassword(long id)
+        {
+            //IDEA: Сделать настройку подтвреждения смены пароля через почту.
+            var user = await ReadUser();
+            
+            if(await _database.IsDataOwnership(user.Token, id))
+            {
+                var dbUser = await _database.GetAsync(id);
+                dbUser.Password = user.Password;
+                dbUser.Token = In_office.Models.Serucity.Encryption.Generate512ByteKey();
+                await _database.ChangeAsync(id, dbUser);
+                Response.StatusCode = 200;
+                return dbUser.Token;
+            }
+
+            Response.StatusCode = 403;
+            return "Указанный токен не принаддежит указанному айди";
+        }
+
+        /// <summary>
+        /// Получает общедоступные данные о пользователе
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         [HttpGet("/Users/{id}")]
         public async Task<string> Get(long id)
         {
             var user = await _database.GetAsync(id);
             user.E_mail = String.Empty;
+            user.Password = String.Empty;
+            user.Token = String.Empty;
 
             var responce = JsonConvert.SerializeObject(user);
 
@@ -36,12 +64,15 @@ namespace In_office.Controllers
             }
         }
 
+        /// <summary>
+        /// Создаёт новый аккаунт, требует верификации
+        /// </summary>
+        /// <returns></returns>
         [HttpPost("/Users")]
         public async Task<string> Write()
         {
-            var user = await ReadUser(HttpContext);
+            var user = await ReadUser();
             user.Token = In_office.Models.Serucity.Encryption.Generate512ByteKey();
-
             if (!await _database.Contain("E_mail", user.E_mail))
             {
                 Response.StatusCode = 406;
@@ -56,6 +87,11 @@ namespace In_office.Controllers
             return "Ок, ожидай письмо и кинь код на /Users/$EMAIL_ADDRES$/";
         }
 
+        /// <summary>
+        /// Верифицирует почту при создании аккаунта
+        /// </summary>
+        /// <param name="email"></param>
+        /// <returns></returns>
         [HttpPost("/Users/{email}")]
         public async Task<string> Verify(string email)
         {
@@ -83,7 +119,7 @@ namespace In_office.Controllers
                 var newUserObject = await _database.SaveAsync(mailOwner);
 
                 var responce = JsonConvert.SerializeObject(newUserObject);
-                Response.StatusCode = 200;
+                Response.StatusCode = 201;
                 _verificationRequests.Remove(verificationRequest);
                 return responce;
             }
@@ -94,19 +130,61 @@ namespace In_office.Controllers
             }
         }
 
+        /// <summary>
+        /// Авторизует пользователя и возвращает токен клиенту
+        /// </summary>
+        /// <param name="email"></param>
+        /// <returns></returns>
+        [HttpGet("/Users/{email}")]
+        public async Task<string> Autorize(string email)
+        {
+            string password = new StreamReader(HttpContext.Request.Body).ReadToEnd();
+            if(await _database.Contain("E_mail", email) && await _database.Contain("Password", password))
+            {
+                Response.StatusCode = 200;
+                var user = await _database.GetObjectByPropertyAsync("E_mail", email);
+                return user.Token;
+            }
+
+            Response.StatusCode = 406;
+            return "Указанный пароль не подходит";
+        }
+
+        /// <summary>
+        /// Изменяет данные о пользователе
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         [HttpPut("/Users/{id}")]
         public async Task<string> Change(long id)
         {
-            var user = await ReadUser(HttpContext);
+            var original = await _database.GetAsync(id);
+            var user = await ReadUser();
+
+            if(user.Password != original.Password)
+            {
+                return "Если ты хочешь поменять пароль используй PUT запрос по адрессу /Users/{id}/Password/";
+            }
+
             user.ID = id;
+            user.Token = original.Token;
+            
 
             //Поскольку API будет открытым для использования, 
             //стоит позаботься о безопасности
             //так для изменения любых данных нужно подтверждение о их владении.
             //Сделать это можно предоставив ID пользователя-автора и 512-байтовый HEX ключ, 
             //которые выдаются пользователю при регистрации и каждой авторизации аккаунта.
+            //Ключ будет менятся при смене пароля
 
-            //является ли пользователь владельцем аккаунта? 
+            //upd: У такого способа есть минус 
+            //      -Невозможно отследить всех людей у которых есть ключ
+            //      и плюс
+            //      -Невозможно отследить всех людей у которых есть ключ
+
+            // -Что делать если кто-то со стороны узнал токен?
+            // -Поменять пароль, токен будет менятся вместе с ним.
+
             if (await _database.IsDataOwnership(user.Token, user.ID))
             {
                 await _database.ChangeAsync(id, user);
@@ -120,26 +198,31 @@ namespace In_office.Controllers
             }
         }
 
+        /// <summary>
+        /// Удаляет запись о пользователе 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         [HttpDelete("/Users/{id}")]
         public async Task<string> Delete(long id)
         {
-            var user = await ReadUser(HttpContext);
+            var user = await ReadUser();
 
             if (await _database.IsDataOwnership(user.Token, user.ID))
             {
                 await _database.DeleteAsync(user);
                 Response.StatusCode = 200;
-                return "OK, user was already delete";
+                return "-No, you can't just delete my personal data\n" +
+                       "-hahah SQL tabel make wrum-wrum.";
             }
             else
             {
                 Response.StatusCode = 403;
-                return "-No, you can't just delete my personal data\n" +
-                       "-hahah SQL tabel make wrum-wrum.";
+                return "No https://i.kym-cdn.com/photos/images/newsfeed/001/506/783/c3c.jpg";
             }
         }
 
-        public async Task<User> ReadUser(Microsoft.AspNetCore.Http.HttpContext context)
+        private async Task<User> ReadUser()
         {
             string body;
 
@@ -150,7 +233,7 @@ namespace In_office.Controllers
             return JsonConvert.DeserializeObject<User>(body);
         }
 
-        public async Task<string> Read()
+        private async Task<string> Read()
         {
             string body;
 

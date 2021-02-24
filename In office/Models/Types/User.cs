@@ -14,6 +14,8 @@ namespace In_office.Models.Types
     {
         [JsonProperty("name")]
         public string Name { get; set; }
+        [JsonProperty("password")]
+        public string Password { get; set; }
         [JsonProperty("surname")]
         public string Surname { get; set; }
         [JsonProperty("nickname")]

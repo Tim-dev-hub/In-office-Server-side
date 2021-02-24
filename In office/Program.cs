@@ -13,6 +13,7 @@ namespace In_office
     {
         public static void Main(string[] args)
         {
+            Console.WriteLine(s);
             CreateHostBuilder(args).Build().Run();
         }
 

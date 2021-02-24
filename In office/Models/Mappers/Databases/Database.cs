@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Data.SQLite;
 using System.IO;
 using In_office.Models.Types;
+using System.Threading;
 
 namespace In_office.Models.Data.Mappers
 {
@@ -15,7 +16,7 @@ namespace In_office.Models.Data.Mappers
     /// Object of database
     /// </summary>
     /// <typeparam name="T">an object inherited from the Data class and having an initializer new ()</typeparam>
-    public class DataMapper<T> : IAsyncMapper<T> where T : Types.Data, new() 
+    public class Database<T> : IAsyncMapper<T> where T : Types.Data, new() 
     {
         private const string CreateStringFormat = "CREATE TABLE $NAME$ ( $SCHEMA$ )";
         private const string AddElementStringFormat = "INSERT INTO $NAME$ ($COLUMNS_NAMES$) VALUES($VALUES$)";
@@ -37,7 +38,7 @@ namespace In_office.Models.Data.Mappers
             { typeof(float), SQLProperty.DataType.REAL }
         };
 
-        public DataMapper(string Name)
+        public Database(string Name)
         {
             this.Name = Name;
             List<SQLProperty> properties = new List<SQLProperty>();
@@ -140,10 +141,22 @@ namespace In_office.Models.Data.Mappers
         /// Can be null, if object doesn't exists</returns>
         public async Task<T> GetAsync(long id)
         {
+            return await GetObjectByPropertyAsync("ID", id.ToString());
+        }
+
+        /// <summary>
+        /// find object in database with entered property value
+        /// </summary>
+        /// <param name="propName">Name of propetry</param>
+        /// <param name="propValue">Value of propetry</param>>
+        /// <returns>finded object
+        /// Can be null, if object doesn't exists</returns>
+        public async Task<T> GetObjectByPropertyAsync(string propName, string propValue)
+        {
             var command = GetElementStringFormat;
             command = command.Replace("$NAME$", Name);
-            command = command.Replace("$CONDITION$", "ID = " + id);
-            
+            command = command.Replace("$CONDITION$", propName +  " = " + propValue);
+
             return await ExecuteReaderAsync(command);
         }
 
