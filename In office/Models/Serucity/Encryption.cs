@@ -30,6 +30,12 @@ namespace In_office.Models.Serucity
             return strResult.Replace("-", string.Empty);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="commentary"></param>
+        /// <returns>True if password OK</returns>
         public static bool ValidPassword(string password, out string commentary)
         {
             commentary = "";

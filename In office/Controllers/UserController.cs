@@ -65,13 +65,22 @@ namespace In_office.Controllers
         }
 
         /// <summary>
-        /// Создаёт новый аккаунт, требует верификации
+        /// Создаёт новый аккаунт. Требует верификации
         /// </summary>
         /// <returns></returns>
         [HttpPost("/Users")]
         public async Task<string> Write()
         {
             var user = await ReadUser();
+            
+            string coms;
+            if(!In_office.Models.Serucity.Encryption.ValidPassword(user.Password, out coms))
+            {
+                Response.StatusCode = 418;
+                return coms;
+            }
+
+
             user.Token = In_office.Models.Serucity.Encryption.Generate512ByteKey();
             if (!await _database.Contain("E_mail", user.E_mail))
             {

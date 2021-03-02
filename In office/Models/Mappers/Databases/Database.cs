@@ -35,7 +35,7 @@ namespace In_office.Models.Data.Mappers
             { typeof(string), SQLProperty.DataType.TEXT},
             { typeof(DateTime), SQLProperty.DataType.DATETIME},
             { typeof(TimeSpan), SQLProperty.DataType.TIME},
-            { typeof(float), SQLProperty.DataType.REAL }
+            { typeof(float), SQLProperty.DataType.REAL },
         };
 
         public Database(string Name)
@@ -64,11 +64,11 @@ namespace In_office.Models.Data.Mappers
             string path = Disk.Root + @"\" + Name + ".sqlite";
             this._path = path;
 
-            if (!File.Exists(path))
+            if (!System.IO.File.Exists(path))
             {
                 SQLiteConnection.CreateFile(path);
                 var comm = GenerateCreateString(Name, this.Properties);
-                Task.Run(() => EnterCommandNonQuaryAsync(comm));
+                EnterCommandNonQuaryAsync(comm);
             }
         }
 
@@ -120,7 +120,11 @@ namespace In_office.Models.Data.Mappers
                     {
                         var prop = type.GetProperty(typeof(T).GetProperties()[i].Name);
                         var value = reader.GetValue(i);
-                        prop.SetValue(instance, value);
+                        prop.SetValue(instance, Convert.ChangeType(value, prop.PropertyType));
+                        //NOTE: Если тут будет ошибка с конфиклтующими типами просто перенеси базу данных на новую схему класса
+                        //или дропни её ¯\_(ツ)_/¯
+
+                        //TODO: Пофиксить баг описаный выше и не требовать от переноса БД в случае измены в классе
                     }
 
                     await reader.CloseAsync();
@@ -187,7 +191,7 @@ namespace In_office.Models.Data.Mappers
         /// <returns>return entered object with datanase's id</returns>
         public async Task<T> SaveAsync(T obj)
         {
-            obj.ID = await GetID();
+            obj.ID = await GetRandomID();
             var command = AddElementStringFormat;
             command = command.Replace("$NAME$", Name);
             command = command.Replace("$COLUMNS_NAMES$", GenerateColumnsNames(Properties));
@@ -197,11 +201,29 @@ namespace In_office.Models.Data.Mappers
             return obj;
         }
 
+
+        /// <summary>
+        /// Save object in databse with entered id
+        /// </summary>
+        /// <param name="obj">Object instance</param>
+        /// <returns>return entered object with datanase's id</returns>
+        public async Task<T> SaveAsync(T obj, long id)
+        {
+            obj.ID = id;
+            var command = AddElementStringFormat;
+            command = command.Replace("$NAME$", Name);
+            command = command.Replace("$COLUMNS_NAMES$", GenerateColumnsNames(Properties));
+            command = command.Replace("$VALUES$", GenerateValues(obj));
+
+            await EnterCommandNonQuaryAsync(command);
+            return obj;
+        }
+
         /// <summary>
         /// Generate random ID not previously used in current database
         /// </summary>
         /// <returns>random ID</returns>
-        private async Task<long> GetID()
+        public async Task<long> GetRandomID()
         {
             int result = 0;
 

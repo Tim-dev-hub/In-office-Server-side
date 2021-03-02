@@ -19,7 +19,7 @@ namespace In_office.Models
             EnableSsl = true,
             DeliveryMethod = SmtpDeliveryMethod.Network,
             UseDefaultCredentials = false,
-            Credentials = new NetworkCredential(ServerMail.Address, "no, no, no, fuck you")
+            Credentials = new NetworkCredential(ServerMail.Address, "Шо? Опять?")
         };
         public static void Send(string mail, string subject, string message)
         {
